@@ -7,7 +7,7 @@ import { Toaster } from "@/components/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Hardcore Gaming - Play. Earn. Dominate",
+  title: "MonArcade Gaming - Play. Earn. Dominate",
   description: "Experience the future of gaming on Core blockchain with Hardcore Gaming platform",
     generator: 'Ayush Raj'
 }
