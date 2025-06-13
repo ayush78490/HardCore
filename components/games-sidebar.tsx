@@ -1,17 +1,23 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { WalletConnect } from "./wallet-connect"
 import { Gamepad2, TrendingUp, CreditCard, History, User, Upload } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 const menuItems = [
-  { icon: Gamepad2, label: "Game Library", active: true },
-  { icon: TrendingUp, label: "Earn" },
-  { icon: CreditCard, label: "Top Up" },
-  { icon: History, label: "History" },
-  { icon: User, label: "Profile" },
-  { icon: Upload, label: "Publish" },
+  { icon: Gamepad2, label: "Game Library", path: "/games" },
+  { icon: TrendingUp, label: "Earn", path: "/earn" },
+  { icon: CreditCard, label: "Top Up", path: "/top-up" },
+  { icon: History, label: "History", path: "/history" },
+  { icon: User, label: "Profile", path: "/profile" },
+  { icon: Upload, label: "Publish", path: "/publish" },
 ]
 
 export function GamesSidebar() {
+  const pathname = usePathname()
+
   return (
     <div className="w-64 bg-gray-900/50 border-r border-gray-800 p-6 flex flex-col">
       <div className="mb-8">
@@ -23,13 +29,16 @@ export function GamesSidebar() {
           {menuItems.map((item, index) => (
             <li key={index}>
               <Button
-                variant={item.active ? "secondary" : "ghost"}
+                asChild
+                variant={pathname.startsWith(item.path) ? "secondary" : "ghost"}
                 className={`w-full justify-start gap-3 ${
-                  item.active ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                  pathname.startsWith(item.path) ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
                 }`}
               >
-                <item.icon className="w-4 h-4" />
-                {item.label}
+                <Link href={item.path} className="flex items-center gap-3">
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
               </Button>
             </li>
           ))}

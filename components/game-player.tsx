@@ -31,7 +31,6 @@ export function GamePlayer({ gameId, title }: GamePlayerProps) {
           Back to Games
         </Button>
         <h1 className="text-xl font-bold text-[#bbada0]">{title}</h1>
-        {/* Removed Score Section */}
       </div>
 
       <div className="flex-1 flex items-center justify-center bg-gray-900/50 relative">
