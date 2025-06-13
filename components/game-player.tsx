@@ -26,11 +26,11 @@ export function GamePlayer({ gameId, title }: GamePlayerProps) {
   return (
     <div className="flex flex-col h-screen bg-black">
       <div className="bg-gray-900 p-4 flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.back()} className="text-gray-300">
+        <Button variant="ghost" onClick={() => router.back()} className="text-[#bbada0]">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Games
         </Button>
-        <h1 className="text-xl font-bold text-white">{title}</h1>
+        <h1 className="text-xl font-bold text-[#bbada0]">{title}</h1>
         {/* Removed Score Section */}
       </div>
 
@@ -38,7 +38,7 @@ export function GamePlayer({ gameId, title }: GamePlayerProps) {
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-white">Loading {title}...</p>
+            <p className="text-[#bbada0]">Loading {title}...</p>
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
