@@ -30,9 +30,9 @@ export function GamesSidebar() {
             <li key={index}>
               <Button
                 asChild
-                variant={pathname.startsWith(item.path) ? "secondary" : "ghost"}
+                variant={pathname === item.path ? "secondary" : "ghost"}
                 className={`w-full justify-start gap-3 ${
-                  pathname.startsWith(item.path) ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                  pathname === item.path ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800/50"
                 }`}
               >
                 <Link href={item.path} className="flex items-center gap-3">

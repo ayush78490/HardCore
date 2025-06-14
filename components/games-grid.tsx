@@ -10,7 +10,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/use-toast"
 
-const games = [
+const defaultGames = [
   {
     id: 1,
     title: "joint 2048",
@@ -46,8 +46,10 @@ const games = [
 export function GamesGrid() {
   const router = useRouter()
   const [userTimeBalance, setUserTimeBalance] = useState(0)
+  const [userPublishedGames, setUserPublishedGames] = useState<any[]>([])
 
   useEffect(() => {
+    // Load time balance
     const stored = localStorage.getItem("userTimeBalance")
     const parsed = stored ? parseFloat(stored) : NaN
 
@@ -58,12 +60,21 @@ export function GamesGrid() {
       setUserTimeBalance(2.5)
     }
 
+    // Load user published games
+    const storedGames = localStorage.getItem("userPublishedGames")
+    if (storedGames) {
+      setUserPublishedGames(JSON.parse(storedGames))
+    }
+
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === "userTimeBalance" && event.newValue) {
         const newParsed = parseFloat(event.newValue)
         if (!isNaN(newParsed)) {
           setUserTimeBalance(newParsed)
         }
+      }
+      if (event.key === "userPublishedGames" && event.newValue) {
+        setUserPublishedGames(JSON.parse(event.newValue))
       }
     }
 
@@ -91,6 +102,9 @@ export function GamesGrid() {
     router.push(`/games/${gameId}`)
   }
 
+  // Combine default games with user published games
+  const allGames = [...defaultGames, ...userPublishedGames]
+
   return (
     <div className="flex-1 p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
@@ -116,7 +130,7 @@ export function GamesGrid() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {games.map((game, index) => (
+        {allGames.map((game, index) => (
           <motion.div
             key={game.id}
             initial={{ opacity: 0, y: 20 }}
@@ -128,7 +142,7 @@ export function GamesGrid() {
             <Card className="bg-[#1f1f1f] border border-[#333] hover:border-[#555] transition-all duration-300 rounded-2xl overflow-hidden">
               <div className="aspect-video relative">
                 <Image 
-                  src={game.image} 
+                  src={game.image || "/images/default-game.png"} 
                   alt={game.title} 
                   fill 
                   className="object-cover"
