@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/toaster"
 import { ClerkProvider } from '@clerk/nextjs'
+import { dark } from '@clerk/themes'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -52,39 +53,41 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: '#f97316',
-          colorTextOnPrimaryBackground: '#ffffff',
-          colorTextSecondary: '#94a3b8',
-          colorBackground: '#111827',
-          colorInputBackground: '#1f2937',
-          colorInputText: '#f8fafc',
-        },
-        elements: {
-          formButtonPrimary: 'bg-orange-600 hover:bg-orange-700 text-white font-medium transition-colors',
-          formButtonSecondary: 'bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors',
-          card: 'bg-gray-900 border border-gray-700 rounded-xl shadow-lg',
-          headerTitle: 'text-white font-bold text-2xl',
-          headerSubtitle: 'text-gray-400',
-          socialButtonsBlockButton: 'border-gray-700 hover:bg-gray-800 text-white transition-colors',
-          dividerLine: 'bg-gray-700',
-          formFieldInput: 'bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all',
-          formFieldLabel: 'text-gray-300',
-          footerActionLink: 'text-orange-400 hover:text-orange-300 transition-colors',
-          footerActionText: 'text-gray-400',
-          logoImage: 'filter brightness-0 invert',
-          userButtonPopoverCard: 'bg-gray-900 border border-gray-700',
-        }
-      }}
-    >
-      <html lang="en" suppressHydrationWarning>
-        <body className={`${inter.className} bg-gray-900 text-white min-h-screen`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-900 text-white min-h-screen`}>
+        <ClerkProvider
+          appearance={{
+            baseTheme: dark,
+            variables: {
+              colorPrimary: '#f97316',
+              colorTextOnPrimaryBackground: '#ffffff',
+              colorTextSecondary: '#94a3b8',
+              colorBackground: '#111827',
+              colorInputBackground: '#1f2937',
+              colorInputText: '#f8fafc',
+            },
+            elements: {
+              formButtonPrimary: 'bg-orange-600 hover:bg-orange-700 text-white font-medium transition-colors',
+              formButtonSecondary: 'bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors',
+              card: 'bg-gray-900 border border-gray-700 rounded-xl shadow-lg',
+              headerTitle: 'text-white font-bold text-2xl',
+              headerSubtitle: 'text-gray-400',
+              socialButtonsBlockButton: 'border-gray-700 hover:bg-gray-800 text-white transition-colors',
+              dividerLine: 'bg-gray-700',
+              formFieldInput: 'bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 rounded-lg transition-all',
+              formFieldLabel: 'text-gray-300',
+              footerActionLink: 'text-orange-400 hover:text-orange-300 transition-colors',
+              footerActionText: 'text-gray-400',
+              logoImage: 'filter brightness-0 invert',
+              userButtonPopoverCard: 'bg-gray-900 border border-gray-700',
+            }
+          }}
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        >
           {children}
           <Toaster />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   )
 }
