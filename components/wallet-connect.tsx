@@ -5,17 +5,17 @@ import { Wallet, CheckCircle2, RefreshCw } from "lucide-react"
 import { useState, useEffect } from "react"
 import { toast } from "@/components/ui/use-toast"
 
-// Monad Testnet network configuration
-const MONAD_TESTNET = {
-  chainId: "0x279F", // 10143 in hex
-  chainName: "Monad Testnet",
+// Core Blockchain network configuration
+const CORE_NETWORK = {
+  chainId: "0x2329", // 9001 in hex
+  chainName: "Core Blockchain",
   nativeCurrency: {
-    name: "Monad",
-    symbol: "MON",
+    name: "Core",
+    symbol: "CORE",
     decimals: 18,
   },
-  rpcUrls: ["https://testnet-rpc.monad.xyz"],
-  blockExplorerUrls: ["https://testnet.monadexplorer.com"],
+  rpcUrls: ["https://rpc.coredao.org"],
+  blockExplorerUrls: ["https://scan.coredao.org"],
 }
 
 export function WalletConnect() {
@@ -81,26 +81,26 @@ export function WalletConnect() {
     return "Unknown Wallet"
   }
 
-  const addMonadTestnet = async () => {
+  const addCoreNetwork = async () => {
     try {
       if (typeof window === "undefined" || !window.ethereum) return false
 
       await window.ethereum.request({
         method: "wallet_addEthereumChain",
-        params: [MONAD_TESTNET],
+        params: [CORE_NETWORK],
       })
       return true
     } catch (error: any) {
       if (error.code === 4001) {
         toast({
           title: "Network addition cancelled",
-          description: "You declined to add the Monad Testnet to your wallet.",
+          description: "You declined to add the Core Blockchain to your wallet.",
           variant: "destructive",
         })
       } else {
         toast({
           title: "Network Error",
-          description: "Failed to add Monad Testnet to your wallet.",
+          description: "Failed to add Core Blockchain to your wallet.",
           variant: "destructive",
         })
       }
@@ -108,29 +108,29 @@ export function WalletConnect() {
     }
   }
 
-  const switchToMonadTestnet = async () => {
+  const switchToCoreNetwork = async () => {
     try {
       if (typeof window === "undefined" || !window.ethereum) return false
 
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: MONAD_TESTNET.chainId }],
+        params: [{ chainId: CORE_NETWORK.chainId }],
       })
       return true
     } catch (error: any) {
       // This error code indicates that the chain has not been added to the wallet
       if (error.code === 4902) {
-        return await addMonadTestnet()
+        return await addCoreNetwork()
       } else if (error.code === 4001) {
         toast({
           title: "Network switch cancelled",
-          description: "You declined to switch to the Monad Testnet.",
+          description: "You declined to switch to the Core Blockchain.",
           variant: "destructive",
         })
         return false
       }
 
-      console.error("Failed to switch to Monad Testnet:", error)
+      console.error("Failed to switch to Core Blockchain:", error)
       return false
     }
   }
@@ -150,9 +150,9 @@ export function WalletConnect() {
       })
 
       if (balance) {
-        // Convert from wei to MON (divide by 10^18)
-        const balanceInMon = Number.parseInt(balance, 16) / Math.pow(10, 18)
-        const formattedBalance = balanceInMon.toFixed(4)
+        // Convert from wei to CORE (divide by 10^18)
+        const balanceInCore = Number.parseInt(balance, 16) / Math.pow(10, 18)
+        const formattedBalance = balanceInCore.toFixed(4)
         setBalance(formattedBalance)
       } else {
         setBalance("0.0000")
@@ -173,7 +173,7 @@ export function WalletConnect() {
       if (typeof window === "undefined" || !window.ethereum) {
         toast({
           title: "No Web3 wallet found",
-          description: "Please install a Web3 wallet like MetaMask to connect to Monad Testnet.",
+          description: "Please install a Web3 wallet like MetaMask to connect to Core Blockchain.",
           variant: "destructive",
         })
         setIsConnecting(false)
@@ -187,9 +187,9 @@ export function WalletConnect() {
       // Check current network
       const chainId = await window.ethereum.request({ method: "eth_chainId" })
 
-      // If not connected to Monad Testnet, switch to it
-      if (chainId !== MONAD_TESTNET.chainId) {
-        const switched = await switchToMonadTestnet()
+      // If not connected to Core Blockchain, switch to it
+      if (chainId !== CORE_NETWORK.chainId) {
+        const switched = await switchToCoreNetwork()
         if (!switched) {
           setIsConnecting(false)
           return
@@ -210,7 +210,7 @@ export function WalletConnect() {
       setIsConnected(true)
 
       toast({
-        title: "Wallet connected to Monad Testnet",
+        title: "Wallet connected to Core Blockchain",
         description: `Connected with ${walletName}`,
         icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
       })
@@ -244,7 +244,7 @@ export function WalletConnect() {
       } else {
         toast({
           title: "Connection failed",
-          description: "Failed to connect wallet to Monad Testnet. Please try again.",
+          description: "Failed to connect wallet to Core Blockchain. Please try again.",
           variant: "destructive",
         })
       }
@@ -272,14 +272,14 @@ export function WalletConnect() {
       })
 
       window.ethereum.on("chainChanged", async (chainId: string) => {
-        if (chainId !== MONAD_TESTNET.chainId) {
+        if (chainId !== CORE_NETWORK.chainId) {
           toast({
             title: "Wrong network",
-            description: "Please switch back to Monad Testnet",
+            description: "Please switch back to Core Blockchain",
             variant: "destructive",
           })
         } else {
-          // Refetch balance when switching back to Monad Testnet
+          // Refetch balance when switching back to Core Blockchain
           if (address) {
             await fetchBalance(address)
           }
@@ -308,7 +308,7 @@ export function WalletConnect() {
 
     toast({
       title: "Wallet disconnected",
-      description: "Your wallet has been disconnected from Monad Testnet",
+      description: "Your wallet has been disconnected from Core Blockchain",
     })
   }
 
@@ -316,7 +316,7 @@ export function WalletConnect() {
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2">
-          <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
             <Wallet className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1">
@@ -324,12 +324,12 @@ export function WalletConnect() {
             <div className="text-white text-sm font-mono truncate max-w-[150px]">
               {`${address.slice(0, 6)}...${address.slice(-6)}`}
             </div>
-            <div className="border-t border-purple-400 my-2" />
-            <div className="text-xs text-purple-300 mb-2">Connected to Monad Testnet</div>
+            <div className="border-t border-blue-400 my-2" />
+            <div className="text-xs text-blue-300 mb-2">Connected to Core</div>
             <Button
               size="sm"
               onClick={disconnectWallet}
-              className="mt-1 bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white transition-colors"
+              className="mt-1 bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white transition-colors"
             >
               Disconnect
             </Button>
@@ -337,9 +337,9 @@ export function WalletConnect() {
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">MON Balance:</span>
+            <span className="text-gray-400 text-sm">CORE Balance:</span>
             <div className="flex items-center gap-2">
-              <span className="text-white font-bold">{isLoadingBalance ? "Loading..." : `${balance} MON`}</span>
+              <span className="text-white font-bold">{isLoadingBalance ? "Loading..." : `${balance} CORE`}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -351,16 +351,6 @@ export function WalletConnect() {
               </Button>
             </div>
           </div>
-          <div className="mt-2">
-            <a 
-              href="https://faucet.monad.xyz" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-xs text-purple-400 hover:text-purple-300 underline"
-            >
-              Get test MON tokens from faucet
-            </a>
-          </div>
         </div>
       </div>
     )
@@ -369,7 +359,7 @@ export function WalletConnect() {
   return (
     <Button
       onClick={connectWallet}
-      className="bg-purple-600 hover:bg-purple-700 text-white w-full flex items-center justify-center gap-2"
+      className="bg-blue-600 hover:bg-blue-700 text-white w-full flex items-center justify-center gap-2"
       disabled={isConnecting}
     >
       {isConnecting ? (
@@ -379,10 +369,10 @@ export function WalletConnect() {
         </div>
       ) : (
         <>
-          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
             <Wallet className="w-3 h-3 text-white" />
           </div>
-          Connect to Monad Testnet
+          Connect to Core Blockchain
         </>
       )}
     </Button>

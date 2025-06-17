@@ -9,8 +9,19 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/use-toast"
+import { useUser } from "@clerk/nextjs"
 
-const defaultGames = [
+type Game = {
+  id: number
+  title: string
+  description: string
+  image: string
+  url?: string
+  category?: string
+  published_at?: string
+}
+
+const defaultGames: Game[] = [
   {
     id: 1,
     title: "joint 2048",
@@ -45,44 +56,59 @@ const defaultGames = [
 
 export function GamesGrid() {
   const router = useRouter()
+  const { isLoaded, user } = useUser()
   const [userTimeBalance, setUserTimeBalance] = useState(0)
-  const [userPublishedGames, setUserPublishedGames] = useState<any[]>([])
+  const [publishedGames, setPublishedGames] = useState<Game[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Load time balance
-    const stored = localStorage.getItem("userTimeBalance")
-    const parsed = stored ? parseFloat(stored) : NaN
-
-    if (!isNaN(parsed)) {
-      setUserTimeBalance(parsed)
-    } else {
-      localStorage.setItem("userTimeBalance", "2.5")
-      setUserTimeBalance(2.5)
-    }
-
-    // Load user published games
-    const storedGames = localStorage.getItem("userPublishedGames")
-    if (storedGames) {
-      setUserPublishedGames(JSON.parse(storedGames))
-    }
-
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "userTimeBalance" && event.newValue) {
-        const newParsed = parseFloat(event.newValue)
-        if (!isNaN(newParsed)) {
-          setUserTimeBalance(newParsed)
+    const fetchData = async () => {
+      try {
+        // Load time balance from your database or session
+        const balanceResponse = await fetch('/api/user/balance')
+        if (balanceResponse.ok) {
+          const { balance } = await balanceResponse.json()
+          setUserTimeBalance(balance)
+        } else {
+          setUserTimeBalance(2.5) // Default balance
         }
-      }
-      if (event.key === "userPublishedGames" && event.newValue) {
-        setUserPublishedGames(JSON.parse(event.newValue))
+
+        // Load published games from Neon database
+        const gamesResponse = await fetch('/api/games')
+        if (gamesResponse.ok) {
+          const games = await gamesResponse.json()
+          setPublishedGames(games)
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load games data",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
+    fetchData()
   }, [])
 
-  const handlePlayGame = (gameId: number) => {
+  const handlePlayGame = async (gameId: number) => {
+    if (!isLoaded || !user) {
+      toast({
+        title: "Please sign in",
+        description: "You need to be signed in to play games",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/sign-in">Sign In</Link>
+          </Button>
+        ),
+      })
+      return
+    }
+
     if (userTimeBalance <= 0) {
       toast({
         title: "Insufficient Time",
@@ -97,13 +123,48 @@ export function GamesGrid() {
       return
     }
 
-    sessionStorage.setItem("gameStartTime", Date.now().toString())
-    sessionStorage.setItem("lastUserTimeBalance", userTimeBalance.toString())
-    router.push(`/games/${gameId}`)
+    // Start game session
+    try {
+      const response = await fetch('/api/games/session/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gameId,
+          userId: user.id
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to start game session")
+      }
+
+      const { sessionId, remainingBalance } = await response.json()
+      setUserTimeBalance(remainingBalance)
+      
+      // Store session ID for tracking
+      sessionStorage.setItem("gameSessionId", sessionId)
+      router.push(`/games/${gameId}`)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start game",
+        variant: "destructive",
+      })
+    }
   }
 
-  // Combine default games with user published games
-  const allGames = [...defaultGames, ...userPublishedGames]
+  // Combine default games with published games from database
+  const allGames = [...defaultGames, ...publishedGames]
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 p-8 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 p-8">
@@ -132,7 +193,7 @@ export function GamesGrid() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {allGames.map((game, index) => (
           <motion.div
-            key={game.id}
+            key={`${game.id}-${index}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
@@ -159,7 +220,7 @@ export function GamesGrid() {
                 <div className="mt-auto">
                   <Button 
                     onClick={() => handlePlayGame(game.id)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm rounded-full mt-2"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-full mt-2"
                   >
                     Play Game
                     <ArrowRight className="w-4 h-4 ml-1" />

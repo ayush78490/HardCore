@@ -53,7 +53,7 @@ export function HeroSection() {
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 bg-gray-800/50 rounded-full px-6 py-3 mb-8 border border-gray-700"
           >
-            <span className="text-gray-300">Introducing MonArcade Gaming</span>
+            <span className="text-gray-300">Introducing HardCore</span>
             <motion.div animate={{ x: [0, 5, 0] }} transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}>
               <ArrowRight className="w-4 h-4 text-white" />
             </motion.div>
@@ -69,7 +69,7 @@ export function HeroSection() {
               transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, repeatType: "reverse" }}
               style={{ backgroundSize: "200% 200%" }}
             >
-              <AnimatedText text="MonArcade" className="typing" />
+              <AnimatedText text="HardCore" className="typing" />
             </motion.span>
           </h1>
 
@@ -80,7 +80,7 @@ export function HeroSection() {
             className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
           >
             Discover the Future of Gaming on Core Blockchain. Experience a platform built on transparency and fairness,
-            ensuring equal opportunities for all MonArcade gamers.
+            ensuring equal opportunities for all HardCore gamers.
           </motion.p>
 
           <motion.div

@@ -13,17 +13,18 @@ import { Loader2, Wallet, ExternalLink, Clock } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import { useUser } from "@clerk/nextjs"
 
-const MONAD_TESTNET = {
-  chainId: "0x279F",
-  chainName: "Monad Testnet",
+const CORE_NETWORK = {
+  chainId: "0x2329", // 9001 in hex
+  chainName: "Core Blockchain",
   nativeCurrency: {
-    name: "Monad",
-    symbol: "MON",
+    name: "Core",
+    symbol: "CORE",
     decimals: 18,
   },
-  rpcUrls: ["https://testnet-rpc.monad.xyz"],
-  blockExplorerUrls: ["https://testnet.monadexplorer.com"],
+  rpcUrls: ["https://rpc.coredao.org"],
+  blockExplorerUrls: ["https://scan.coredao.org"],
 }
 
 const GAME_WALLET_ADDRESS = "0x34D41FB82d053C4A06Cf4d435fd0AF865fb0eD0C"
@@ -35,27 +36,35 @@ export function TopUpForm() {
     hash: string
     amount: number
   } | null>(null)
-  const [userTimeBalance, setUserTimeBalance] = useState(2.5)
+  const [userTimeBalance, setUserTimeBalance] = useState(0)
+  const { isLoaded, user } = useUser()
 
-  // 🔄 Load balance from localStorage on mount
+  // 🔄 Load balance from database on mount
   useEffect(() => {
-    const storedBalance = localStorage.getItem("userTimeBalance")
-    const parsed = parseFloat(storedBalance || "NaN")
-    if (!isNaN(parsed) && parsed >= 0) {
-      setUserTimeBalance(parsed)
-    } else {
-      const defaultBalance = 2.5
-      localStorage.setItem("userTimeBalance", defaultBalance.toString())
-      setUserTimeBalance(defaultBalance)
+    const fetchBalance = async () => {
+      if (!isLoaded || !user) return
+      
+      try {
+        const response = await fetch('/api/user/balance')
+        if (response.ok) {
+          const data = await response.json()
+          setUserTimeBalance(data.balance)
+        } else {
+          // Set default balance if not found
+          setUserTimeBalance(2.5)
+        }
+      } catch (error) {
+        console.error("Failed to fetch balance:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load your balance",
+          variant: "destructive",
+        })
+      }
     }
-  }, [])
 
-  // 💾 Save balance to localStorage whenever it changes
-  useEffect(() => {
-    if (!isNaN(userTimeBalance) && userTimeBalance >= 0) {
-      localStorage.setItem("userTimeBalance", userTimeBalance.toString())
-    }
-  }, [userTimeBalance])
+    fetchBalance()
+  }, [isLoaded, user])
 
   const getCurrentAccount = async (): Promise<string> => {
     if (typeof window === "undefined" || !window.ethereum) {
@@ -68,7 +77,38 @@ export function TopUpForm() {
     return accounts[0]
   }
 
+  const updateBalanceInDatabase = async (newBalance: number) => {
+    try {
+      const response = await fetch('/api/user/balance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          balance: newBalance
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update balance")
+      }
+    } catch (error) {
+      console.error("Balance update failed:", error)
+      throw error
+    }
+  }
+
   const handleTopUp = async () => {
+    if (!isLoaded || !user) {
+      toast({
+        title: "Please sign in",
+        description: "You need to be signed in to top up",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!amount || parseFloat(amount) <= 0) {
       toast({ title: "Invalid amount", variant: "destructive" })
       return
@@ -82,8 +122,8 @@ export function TopUpForm() {
     setIsProcessing(true)
 
     try {
-      const amountInMon = parseFloat(amount)
-      const amountInWei = (amountInMon * 1e18).toString(16)
+      const amountInCore = parseFloat(amount)
+      const amountInWei = (amountInCore * 1e18).toString(16)
 
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
@@ -96,13 +136,30 @@ export function TopUpForm() {
         ],
       })
 
-      const newBalance = userTimeBalance + amountInMon
+      const newBalance = userTimeBalance + amountInCore
       setUserTimeBalance(newBalance)
-      setLastTransaction({ hash: txHash, amount: amountInMon })
+      setLastTransaction({ hash: txHash, amount: amountInCore })
+
+      // Update balance in database
+      await updateBalanceInDatabase(newBalance)
+
+      // Record transaction in database
+      await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          txHash,
+          amount: amountInCore,
+          type: 'topup'
+        }),
+      })
 
       toast({
         title: "Top Up Successful!",
-        description: `You've purchased ${amountInMon} hours of game time.`,
+        description: `You've purchased ${amountInCore} hours of game time.`,
       })
 
       setAmount("")
@@ -128,7 +185,7 @@ export function TopUpForm() {
         <Card className="bg-gray-900/70 border border-gray-800 shadow-xl">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Clock className="w-5 h-5 text-purple-400" />
+              <Clock className="w-5 h-5 text-blue-400" />
               Game Time Balance
             </CardTitle>
             <CardDescription className="text-gray-400">
@@ -139,7 +196,7 @@ export function TopUpForm() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-gray-400 text-sm">Available</p>
-                <p className="text-4xl font-bold text-purple-400">
+                <p className="text-4xl font-bold text-blue-400">
                   {userTimeBalance.toFixed(2)}{" "}
                   <span className="text-xl font-normal">hrs</span>
                 </p>
@@ -147,7 +204,7 @@ export function TopUpForm() {
               <Button
                 asChild
                 variant="outline"
-                className="border-purple-500 hover:bg-purple-600/10 text-white"
+                className="border-blue-500 hover:bg-blue-600/10 text-white"
               >
                 <Link href="/games">Play Games</Link>
               </Button>
@@ -168,9 +225,9 @@ export function TopUpForm() {
                   <div className="flex justify-between">
                     <span className="text-gray-400">Transaction:</span>
                     <Link
-                      href={`${MONAD_TESTNET.blockExplorerUrls[0]}/tx/${lastTransaction.hash}`}
+                      href={`${CORE_NETWORK.blockExplorerUrls[0]}/tx/${lastTransaction.hash}`}
                       target="_blank"
-                      className="text-purple-400 hover:underline flex items-center"
+                      className="text-blue-400 hover:underline flex items-center"
                     >
                       View on explorer <ExternalLink className="ml-1 h-4 w-4" />
                     </Link>
@@ -189,7 +246,7 @@ export function TopUpForm() {
             <CardHeader>
               <CardTitle className="text-white">Purchase Game Time</CardTitle>
               <CardDescription className="text-gray-400">
-                Exchange MON tokens for time (1 MON = 1 hour)
+                Exchange CORE tokens for time (1 CORE = 1 hour)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -200,7 +257,7 @@ export function TopUpForm() {
                 <Input
                   value={amount}
                   onChange={handleAmountChange}
-                  placeholder="Enter amount in MON"
+                  placeholder="Enter amount in CORE"
                   className="bg-gray-800 border-gray-700 text-white text-lg h-12 px-4"
                 />
               </div>
@@ -214,7 +271,7 @@ export function TopUpForm() {
                         {amount ? parseFloat(amount).toFixed(2) : "0.00"} hours
                       </p>
                     </div>
-                    <Clock className="h-6 w-6 text-purple-400" />
+                    <Clock className="h-6 w-6 text-blue-400" />
                   </CardContent>
                 </Card>
                 <Card className="bg-gray-800/60 border border-gray-700">
@@ -225,15 +282,15 @@ export function TopUpForm() {
                         {(userTimeBalance + (amount ? parseFloat(amount) : 0)).toFixed(2)} hours
                       </p>
                     </div>
-                    <Wallet className="h-6 w-6 text-purple-400" />
+                    <Wallet className="h-6 w-6 text-blue-400" />
                   </CardContent>
                 </Card>
               </div>
 
               <Button
                 onClick={handleTopUp}
-                disabled={!amount || parseFloat(amount) <= 0 || isProcessing}
-                className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={!amount || parseFloat(amount) <= 0 || isProcessing || !isLoaded}
+                className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isProcessing ? (
                   <>
@@ -249,7 +306,7 @@ export function TopUpForm() {
               </Button>
 
               <div className="text-center text-gray-500 text-sm">
-                <p>Transactions are processed on the Monad Testnet</p>
+                <p>Transactions are processed on the Core Blockchain</p>
                 <p className="mt-1">Estimated confirmation time: ~15 seconds</p>
               </div>
             </CardContent>
