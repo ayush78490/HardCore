@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
 
