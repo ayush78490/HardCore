@@ -11,17 +11,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { UploadCloud, ArrowRight } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 
+type FormData = {
+  title: string
+  description: string
+  gameUrl: string
+  imageUrl: string
+  category: string
+}
+
 export function PublishGame() {
   const router = useRouter()
-  const { user } = useUser()
+  const { isLoaded, user } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     title: "",
     description: "",
     gameUrl: "",
     imageUrl: "",
     category: "arcade"
   })
+  const [errors, setErrors] = useState<Partial<FormData>>({})
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<FormData> = {}
+
+    if (!formData.title.trim()) {
+      newErrors.title = "Game title is required"
+    } else if (formData.title.length > 100) {
+      newErrors.title = "Title must be less than 100 characters"
+    }
+
+    if (!formData.gameUrl.trim()) {
+      newErrors.gameUrl = "Game URL is required"
+    } else if (!isValidUrl(formData.gameUrl)) {
+      newErrors.gameUrl = "Please enter a valid URL"
+    }
+
+    if (formData.imageUrl && !isValidUrl(formData.imageUrl)) {
+      newErrors.imageUrl = "Please enter a valid URL"
+    }
+
+    if (formData.description.length > 500) {
+      newErrors.description = "Description must be less than 500 characters"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -29,36 +65,49 @@ export function PublishGame() {
       ...prev,
       [name]: value
     }))
+    if (errors[name as keyof FormData]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }))
+    }
+  }
+
+  const isValidUrl = (urlString: string): boolean => {
+    try {
+      const url = new URL(urlString)
+      return url.protocol === "http:" || url.protocol === "https:"
+    } catch {
+      return false
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!isLoaded) {
+      toast({
+        title: "System is loading",
+        description: "Please wait while we verify your session",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      if (!formData.title || !formData.gameUrl) {
-        throw new Error("Title and Game URL are required")
-      }
-
-      // Validate URL format
-      if (!isValidUrl(formData.gameUrl)) {
-        throw new Error("Please enter a valid game URL")
-      }
-
-      if (formData.imageUrl && !isValidUrl(formData.imageUrl)) {
-        throw new Error("Please enter a valid image URL")
-      }
-
       const response = await fetch('/api/games/publish', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          gameUrl: formData.gameUrl,
-          imageUrl: formData.imageUrl || "/images/default-game.png",
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          gameUrl: formData.gameUrl.trim(),
+          imageUrl: formData.imageUrl.trim() || "/images/default-game.png",
           category: formData.category,
           authorId: user?.id,
           authorName: user?.fullName || "Anonymous"
@@ -70,15 +119,12 @@ export function PublishGame() {
         throw new Error(errorData.error || "Failed to publish game")
       }
 
-      const result = await response.json()
-
       toast({
-        title: "Game Published!",
-        description: "Your game has been successfully published to the platform.",
+        title: "Success!",
+        description: "Your game has been published successfully",
         variant: "default",
       })
 
-      // Reset form after successful submission
       setFormData({
         title: "",
         description: "",
@@ -87,29 +133,17 @@ export function PublishGame() {
         category: "arcade"
       })
 
-      // Redirect to games page after a short delay
-      setTimeout(() => {
-        router.push("/games")
-      }, 1500)
+      setTimeout(() => router.push("/games"), 1500)
 
     } catch (error) {
+      console.error("Publish error:", error)
       toast({
-        title: "Publishing Failed",
+        title: "Publishing failed",
         description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
-    }
-  }
-
-  // Helper function to validate URLs
-  const isValidUrl = (urlString: string) => {
-    try {
-      new URL(urlString)
-      return true
-    } catch (err) {
-      return false
     }
   }
 
@@ -140,8 +174,11 @@ export function PublishGame() {
                   onChange={handleChange}
                   placeholder="Enter your game title"
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
+                  disabled={isSubmitting}
                 />
+                {errors.title && (
+                  <p className="text-red-400 text-xs mt-1">{errors.title}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -156,7 +193,16 @@ export function PublishGame() {
                   placeholder="Tell players about your game (features, controls, etc.)"
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={4}
+                  disabled={isSubmitting}
                 />
+                <div className="flex justify-between">
+                  {errors.description && (
+                    <p className="text-red-400 text-xs">{errors.description}</p>
+                  )}
+                  <p className="text-gray-500 text-xs ml-auto">
+                    {formData.description.length}/500 characters
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -171,11 +217,16 @@ export function PublishGame() {
                   onChange={handleChange}
                   placeholder="https://yourgame.com/play"
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
+                  disabled={isSubmitting}
                 />
-                <p className="text-gray-500 text-xs">
-                  Must be a publicly accessible URL where your game is hosted
-                </p>
+                <div className="flex justify-between">
+                  {errors.gameUrl && (
+                    <p className="text-red-400 text-xs">{errors.gameUrl}</p>
+                  )}
+                  <p className="text-gray-500 text-xs">
+                    Must be a publicly accessible URL
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -190,10 +241,16 @@ export function PublishGame() {
                   onChange={handleChange}
                   placeholder="https://example.com/game-image.png"
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isSubmitting}
                 />
-                <p className="text-gray-500 text-xs">
-                  Recommended size: 600x400px (will use default image if not provided)
-                </p>
+                <div className="flex justify-between">
+                  {errors.imageUrl && (
+                    <p className="text-red-400 text-xs">{errors.imageUrl}</p>
+                  )}
+                  <p className="text-gray-500 text-xs">
+                    Recommended size: 600x400px
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -206,6 +263,7 @@ export function PublishGame() {
                   value={formData.category}
                   onChange={handleChange}
                   className="flex h-10 w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isSubmitting}
                 >
                   <option value="arcade">Arcade</option>
                   <option value="puzzle">Puzzle</option>
@@ -219,7 +277,7 @@ export function PublishGame() {
               <div className="pt-4">
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !isLoaded}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
                 >
                   {isSubmitting ? (

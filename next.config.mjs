@@ -8,6 +8,12 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: [
+      "i.pinimg.com",
+      "knight-fall.vercel.app",
+      "cdn.anotherhost.net",
+      // Add any other domains you use for game images
+    ],
   },
   env: {
     // Clerk variables
