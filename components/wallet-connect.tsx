@@ -6,16 +6,16 @@ import { useState, useEffect } from "react"
 import { toast } from "@/components/ui/use-toast"
 
 // Core Blockchain network configuration
-const CORE_NETWORK = {
-  chainId: "0x2329", // 9001 in hex
-  chainName: "Core Blockchain",
+const CORE_TESTNET2 = {
+  chainId: "0x45a", // 1114 in hex
+  chainName: "Core Testnet2",
   nativeCurrency: {
-    name: "Core",
-    symbol: "CORE",
+    name: "Testnet Core",
+    symbol: "tCORE2", // Make sure this is exact to avoid warnings
     decimals: 18,
   },
-  rpcUrls: ["https://rpc.coredao.org"],
-  blockExplorerUrls: ["https://scan.coredao.org"],
+  rpcUrls: ["https://rpc.test2.btcs.network"],
+  blockExplorerUrls: ["https://scan.test2.btcs.network"],
 }
 
 export function WalletConnect() {
@@ -87,7 +87,7 @@ export function WalletConnect() {
 
       await window.ethereum.request({
         method: "wallet_addEthereumChain",
-        params: [CORE_NETWORK],
+        params: [CORE_TESTNET2],
       })
       return true
     } catch (error: any) {
@@ -114,7 +114,7 @@ export function WalletConnect() {
 
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: CORE_NETWORK.chainId }],
+        params: [{ chainId: CORE_TESTNET2.chainId }],
       })
       return true
     } catch (error: any) {
@@ -188,7 +188,7 @@ export function WalletConnect() {
       const chainId = await window.ethereum.request({ method: "eth_chainId" })
 
       // If not connected to Core Blockchain, switch to it
-      if (chainId !== CORE_NETWORK.chainId) {
+      if (chainId !== CORE_TESTNET2.chainId) {
         const switched = await switchToCoreNetwork()
         if (!switched) {
           setIsConnecting(false)
@@ -272,7 +272,7 @@ export function WalletConnect() {
       })
 
       window.ethereum.on("chainChanged", async (chainId: string) => {
-        if (chainId !== CORE_NETWORK.chainId) {
+        if (chainId !== CORE_TESTNET2.chainId) {
           toast({
             title: "Wrong network",
             description: "Please switch back to Core Blockchain",
