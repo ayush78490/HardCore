@@ -7,9 +7,6 @@ import { useEffect, useState } from "react"
 const defaultGames = {
   "1": { title: "CatiZen", url: "https://catizen-nine.vercel.app/" },
   "2": { title: "CatiZen", url: "https://knight-fall-core.vercel.app/" },
-  "3": { title: "knightFall", url: "https://knight-fall-core.vercel.app/" },
-  "4": { title: "shooting wizard", url: "https://danielzlatanov.github.io/softuni-wizard/" },
-  "5": { title: "Space Invaders", url: "https://space-invaders-by-tesfamichael-tafere.netlify.app/" },
 }
 
 export default function GamePage() {

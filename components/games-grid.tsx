@@ -11,6 +11,9 @@ import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/use-toast"
 import { useUser } from "@clerk/nextjs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from "@clerk/nextjs";
+
+
 
 type Game = {
   id: number
@@ -26,16 +29,16 @@ type Game = {
 const defaultGames: Game[] = [
   {
     id: 1,
-    title: "joint 2048",
+    title: "Catizen",
     description: "A brain storming puzzle game where you combine tiles to reach 2048.",
-    image: "/images/2048.png?height=200&width=300",
+    image: "/images/catizen.png?height=200&width=300",
     is_active: true
   },
   {
     id: 2,
-    title: "JavaScript console master",
-    description: "A browser-based game that tests your JavaScript skills in a console environment.",
-    image: "/images/javascriptConsole.png?height=200&width=300",
+    title: "Knightfall",
+    description: "A survival game where you play as a knight defending against waves of enemies.",
+    image: "/images/default-game.png?height=200&width=300",
     is_active: true
   },
   {
@@ -62,49 +65,63 @@ const defaultGames: Game[] = [
 ]
 
 export function GamesGrid() {
-  const router = useRouter()
-  const { isLoaded, user } = useUser()
-  const [userTimeBalance, setUserTimeBalance] = useState(2.5) // Default balance
-  const [publishedGames, setPublishedGames] = useState<Game[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isStartingGame, setIsStartingGame] = useState<number | null>(null)
+  const router = useRouter();
+  const { isLoaded, user } = useUser();
+  const [userTimeBalance, setUserTimeBalance] = useState(2.5);
+  const [publishedGames, setPublishedGames] = useState<Game[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isStartingGame, setIsStartingGame] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Parallel fetching for better performance
+        let headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (isLoaded && user) {
+          const { getToken } = useAuth();
+          const token = await getToken({ template: 'clerk' });
+          if (token) {
+            headers = {
+              ...headers,
+              Authorization: `Bearer ${token}`,
+            };
+          }
+        }
+
         const [balanceResponse, gamesResponse] = await Promise.all([
-          fetch('/api/user/balance'),
-          fetch('/api/games')
-        ])
+          fetch('/api/user/balance', { headers }),
+          fetch('/api/games'),
+        ]);
 
-        if (balanceResponse.ok) {
-          const { balance } = await balanceResponse.json()
-          setUserTimeBalance(balance)
+        if (!balanceResponse.ok) {
+          throw new Error('Failed to fetch balance');
+        }
+        if (!gamesResponse.ok) {
+          throw new Error('Failed to fetch games');
         }
 
-        if (gamesResponse.ok) {
-          const games: Game[] = await gamesResponse.json()
-          // Filter only active games from database (IDs > 5)
-          setPublishedGames(games.filter(game => game.is_active !== false))
-        }
+        const balanceData = await balanceResponse.json();
+        const gamesData = await gamesResponse.json();
+
+        setUserTimeBalance(balanceData.balance);
+        setPublishedGames(gamesData.filter((game: Game) => game.is_active !== false));
       } catch (error) {
-        console.error("Failed to fetch data:", error)
+        console.error("Failed to fetch data:", error);
         toast({
           title: "Error",
-          description: "Failed to load games data",
+          description: "Failed to load game data",
           variant: "destructive",
-        })
+        });
+        setPublishedGames([]);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [])
+    fetchData();
+  }, [isLoaded, user]);
 
   const handlePlayGame = async (gameId: number) => {
-    if (!isLoaded) return // Clerk still loading
+    if (!isLoaded) return
     
     setIsStartingGame(gameId)
     
@@ -123,42 +140,41 @@ export function GamesGrid() {
       return
     }
 
-    if (userTimeBalance <= 0) {
-      toast({
-        title: "Insufficient Time",
-        description: "You don't have enough time to play. Please top up.",
-        variant: "destructive",
-        action: (
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/top-up">Top Up</Link>
-          </Button>
-        ),
-      })
-      setIsStartingGame(null)
-      return
-    }
-
     try {
       const response = await fetch('/api/games/session/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          gameId,
-          userId: user.id
-        }),
+        body: JSON.stringify({ gameId }),
       })
 
+      const data = await response.json()
+      
       if (!response.ok) {
-        throw new Error(await response.text() || "Failed to start game session")
+        if (data.code === 'INSUFFICIENT_BALANCE') {
+          toast({
+            title: "Insufficient Time",
+            description: "You don't have enough time to play. Please top up.",
+            variant: "destructive",
+            action: (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/top-up">Top Up</Link>
+              </Button>
+            ),
+          })
+          return
+        }
+        throw new Error(data.error || "Failed to start game session")
       }
 
-      const { sessionId, remainingBalance } = await response.json()
+      const { sessionId, remainingBalance } = data
       setUserTimeBalance(remainingBalance)
       
-      // Store session ID for tracking
+      // Store session info
       sessionStorage.setItem("gameSessionId", sessionId)
+      sessionStorage.setItem("gameSessionStart", new Date().toISOString())
+      
       router.push(`/games/${gameId}`)
     } catch (error) {
       toast({
@@ -171,7 +187,7 @@ export function GamesGrid() {
     }
   }
 
-  // Combine default games with published games from database
+  // Combine and filter games
   const allGames = [...defaultGames, ...publishedGames].filter(game => game.is_active !== false)
 
   if (isLoading) {

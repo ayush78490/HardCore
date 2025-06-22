@@ -23,6 +23,15 @@ export const metadata: Metadata = {
     'hardcore gaming'
   ],
   authors: [{ name: 'Ayush Raj' }],
+  icons: {
+    icon: [
+      { url: "/logo/favicon.ico", sizes: "any", type: "image/x-icon" },
+      { url: "/logo/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/logo/favicon-32x32.png", sizes: "32x32", type: "image/png" }
+    ],
+    apple: "/logo/favicon-180x180.png",
+  },
+  manifest: "/logo/site.webmanifest",
   openGraph: {
     title: "HardCore Gaming - Play. Earn. Dominate",
     description: "Experience the future of gaming on Core blockchain with Hardcore Gaming platform",
