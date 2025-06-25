@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  clerkId     String        @unique
+  timeBalance Float         @default(2.5)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  games       Game[]        @relation("GameAuthor")
+  sessions    GameSession[]
+}
+
+model Game {
+  id           Int            @id @default(autoincrement())
+  title        String
+  description  String?
+  gameUrl      String         @map("game_url") @unique
+  imageUrl     String         @default("/images/default-game.png") @map("image_url")
+  category     String         @default("arcade")
+  publishedAt  DateTime       @default(now()) @map("published_at")
+  isActive     Boolean        @default(true) @map("is_active")
+  likes        Int            @default(0)
+  plays        Int            @default(0)
+  authorId     String?        @map("author_id")
+  authorName   String?        @map("author_name")
+  author       User?          @relation("GameAuthor", fields: [authorId], references: [clerkId])
+  sessions     GameSession[]
+
+  @@index([category])
+  @@index([publishedAt])
+}
+
+model GameSession {
+  id        String   @id @default(cuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  gameId    Int
+  game      Game     @relation(fields: [gameId], references: [id])
+  startTime DateTime @default(now()) @map("start_time")
+  endTime   DateTime? @map("end_time")
+  cost      Float    @default(0.5)
+
+  @@map("game_sessions")
+}

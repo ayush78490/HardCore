@@ -3,73 +3,65 @@
 import { GamePlayer } from "@/components/game-player"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import { toast } from "@/components/ui/use-toast"
 
-const defaultGames = {
-  "1": { title: "CatiZen", url: "https://catizen-nine.vercel.app/" },
-  "2": { title: "CatiZen", url: "https://knight-fall-core.vercel.app/" },
-  "3": { title: "knightFall", url: "https://knight-fall-core.vercel.app/" },
-  "4": { title: "shooting wizard", url: "https://danielzlatanov.github.io/softuni-wizard/" },
-  "5": { title: "Space Invaders", url: "https://space-invaders-by-tesfamichael-tafere.netlify.app/" },
+interface GameData {
+  title: string
+  url: string
+  image?: string
 }
 
 export default function GamePage() {
   const params = useParams()
   const gameId = params.gameId as string
-  const [gameData, setGameData] = useState<{ title: string; url: string; image?: string } | null>(null)
+  const [gameData, setGameData] = useState<GameData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchGameData = async () => {
       try {
-        if (Object.keys(defaultGames).includes(gameId)) {
-          setGameData(defaultGames[gameId as keyof typeof defaultGames])
-          setIsLoading(false)
+        // First try to get from API
+        const response = await fetch(`/api/games/${gameId}`)
+        
+        if (response.ok) {
+          const data = await response.json()
+          setGameData({
+            title: data.title,
+            url: data.gameUrl || data.url,
+            image: data.imageUrl || data.image
+          })
           return
         }
 
-        const apiTestUrl = '/api/games/test-connection'
-        const testResponse = await fetch(apiTestUrl)
-        if (!testResponse.ok) {
-          throw new Error(`API test failed with status ${testResponse.status}`)
+        // Fallback to default games if API fails
+        const defaultGames = {
+          "1": { title: "CatiZen", url: "https://catizen-nine.vercel.app/", image: "/images/catizen.png" },
+          "2": { title: "Knightfall", url: "https://knight-fall-core.vercel.app/", image: "/images/default-game.png" },
+          "3": { title: "Snow Boarder", url: "https://knight-fall-core.vercel.app/", image: "/images/snowman.png" },
+          "4": { title: "Shooting Wizard", url: "https://danielzlatanov.github.io/softuni-wizard/", image: "/images/spaceInvader.png" },
+          "5": { title: "Space Invaders", url: "https://space-invaders-by-tesfamichael-tafere.netlify.app/", image: "/images/spaceGame.png" },
         }
 
-        const apiUrl = `/api/games/${gameId}`
-        const response = await fetch(apiUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Request": "true"
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error(`API request failed (${response.status}): ${response.statusText}`)
+        if (gameId in defaultGames) {
+          setGameData(defaultGames[gameId as keyof typeof defaultGames])
+        } else {
+          throw new Error("Game not found")
         }
-
-        const data = await response.json()
-        const gameUrl = data.game_url || data.url || data.gameUrl
-        const gameTitle = data.title || "Published Game"
-        const gameImage = data.image || data.imageUrl || "/images/default-game.png"
-
-        if (!gameUrl || typeof gameUrl !== "string") {
-          throw new Error("Game URL not found in response data")
-        }
-
-        setGameData({ title: gameTitle, url: gameUrl, image: gameImage })
-
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-        setError(errorMessage)
-        setGameData(null)
+        console.error("Failed to fetch game data:", error)
+        setError(error instanceof Error ? error.message : "Unknown error occurred")
+        toast({
+          title: "Error",
+          description: "Failed to load game data",
+          variant: "destructive"
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchGameData()
-
-    return () => {}
   }, [gameId])
 
   if (isLoading) {
@@ -77,7 +69,7 @@ export default function GamePage() {
       <div className="flex flex-col items-center justify-center h-screen gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         <div className="text-sm text-gray-500">
-          Loading game ID: {gameId}
+          Loading game...
         </div>
       </div>
     )
@@ -87,7 +79,7 @@ export default function GamePage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-4">
         <div className="text-red-500 text-lg text-center mb-4">
-          <p>Failed to load game (ID: {gameId}).</p>
+          <p>Failed to load game.</p>
           <p className="text-sm mt-2">{error}</p>
         </div>
         <button
@@ -101,6 +93,11 @@ export default function GamePage() {
   }
 
   return (
-    <GamePlayer gameId={gameId} title={gameData.title} url={gameData.url} image={gameData.image} />
+    <GamePlayer 
+      gameId={gameId} 
+      title={gameData.title} 
+      url={gameData.url} 
+      image={gameData.image} 
+    />
   )
 }

@@ -1,11 +1,12 @@
+// app/api/games/route.ts
 import { NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
 import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
     const { userId } = await auth()
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to publish games' },
@@ -33,53 +34,39 @@ export async function POST(request: Request) {
     // Validate URL format
     try {
       new URL(gameData.gameUrl.trim())
-      if (gameData.imageUrl) {
+      if (gameData.imageUrl?.trim()) {
         new URL(gameData.imageUrl.trim())
       }
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid URL format provided' },
         { status: 400 }
       )
     }
 
-    // Insert game into database (without is_active)
-    const result = await pool.query(
-      `INSERT INTO games (
-        title, 
-        description, 
-        game_url, 
-        image_url, 
-        category,
-        author_id,
-        author_name,
-        published_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      RETURNING *`,
-      [
-        gameData.title.trim(),
-        gameData.description?.trim() || '',
-        gameData.gameUrl.trim(),
-        gameData.imageUrl?.trim() || '/images/default-game.png',
-        gameData.category?.trim() || 'arcade',
-        userId,
-        gameData.authorName?.trim() || 'Anonymous'
-        // Removed is_active parameter
-      ]
-    )
+    // Create game using Prisma
+    const newGame = await prisma.game.create({
+      data: {
+        title: gameData.title.trim(),
+        description: gameData.description?.trim() || '',
+        gameUrl: gameData.gameUrl.trim(),
+        imageUrl: gameData.imageUrl?.trim() || '/images/default-game.png',
+        category: gameData.category?.trim() || 'arcade',
+        authorId: userId,
+        authorName: gameData.authorName?.trim() || 'Anonymous',
+        // Prisma sets timestamps automatically if schema uses `@default(now())`
+        // Else, you can set it here:
+        // publishedAt: new Date()
+      },
+    })
 
     return NextResponse.json(
-      { 
-        success: true,
-        game: result.rows[0] 
-      },
+      { success: true, game: newGame },
       { status: 201 }
     )
-
   } catch (error) {
     console.error('Game Publish Error:', error)
-    
-    // Handle unique constraint violations
+
     if (error instanceof Error && error.message.includes('unique constraint')) {
       return NextResponse.json(
         { error: 'A game with this title or URL already exists' },
@@ -88,9 +75,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to publish game',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     )

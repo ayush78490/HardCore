@@ -9,7 +9,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/use-toast"
-import { useUser } from "@clerk/nextjs"
+import { useUser, useAuth } from "@clerk/nextjs"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type EarnGame = {
@@ -46,8 +46,10 @@ const defaultEarnGames: EarnGame[] = [
 export function EarnGrid() {
   const router = useRouter()
   const { isLoaded, user } = useUser()
+  const { getToken } = useAuth()
   const [userBalance, setUserBalance] = useState(0) // CORE balance
   const [walletBalance, setWalletBalance] = useState(0) // Wallet CORE balance
+  const [timeBalance, setTimeBalance] = useState(0) // Time balance in minutes
   const [publishedEarnGames, setPublishedEarnGames] = useState<EarnGame[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isStartingGame, setIsStartingGame] = useState<number | null>(null)
@@ -117,7 +119,7 @@ export function EarnGrid() {
     }
   }
 
-  // Refresh both balances
+  // Refresh all balances including time balance
   const refreshBalances = async () => {
     try {
       // Refresh wallet balance if connected
@@ -126,11 +128,20 @@ export function EarnGrid() {
         setWalletBalance(balance)
       }
 
-      // Refresh backend balance
-      const balanceResponse = await fetch('/api/user/balance')
+      // Refresh backend balances
+      const [balanceResponse, timeResponse] = await Promise.all([
+        fetch('/api/user/balance'),
+        fetch('/api/user/time-balance')
+      ])
+
       if (balanceResponse.ok) {
         const { coreBalance } = await balanceResponse.json()
         setUserBalance(coreBalance)
+      }
+
+      if (timeResponse.ok) {
+        const { timeBalance: timeBalanceInMinutes } = await timeResponse.json()
+        setTimeBalance(timeBalanceInMinutes)
       }
     } catch (error) {
       console.error("Failed to refresh balances:", error)
@@ -138,24 +149,81 @@ export function EarnGrid() {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [balanceResponse, gamesResponse] = await Promise.all([
-          fetch('/api/user/balance'),
-          fetch('/api/games?type=earn')
-        ])
+    const abortController = new AbortController()
 
-        if (balanceResponse.ok) {
-          const { coreBalance } = await balanceResponse.json()
-          setUserBalance(coreBalance)
+    const fetchData = async () => {
+      if (!isLoaded) return
+
+      try {
+        let headers: HeadersInit = { "Content-Type": "application/json" }
+        if (user) {
+          const token = await getToken()
+          if (token) {
+            headers = { ...headers, Authorization: `Bearer ${token}` }
+          }
         }
 
+        const [balanceResponse, gamesResponse, timeResponse] = await Promise.all([
+          user
+            ? fetch("/api/user/balance", { headers, signal: abortController.signal })
+            : Promise.resolve(null),
+          fetch("/api/games?type=earn", { headers, signal: abortController.signal }),
+          fetch("/api/user/time-balance", { headers, signal: abortController.signal }),
+        ])
+
+        // Handle balance
+        if (user && balanceResponse) {
+          if (!balanceResponse.ok) {
+            if (balanceResponse.status === 401) {
+              toast({
+                title: "Unauthorized",
+                description: "Please sign in to view your balance.",
+                variant: "destructive",
+                action: (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/sign-in">Sign In</Link>
+                  </Button>
+                ),
+              })
+            } else if (balanceResponse.status === 404) {
+              // Try to create user and refetch balance
+              const createResponse = await fetch("/api/user/create", {
+                method: "POST",
+                headers,
+                signal: abortController.signal,
+              })
+              if (createResponse.ok) {
+                const newBalanceResponse = await fetch("/api/user/balance", {
+                  headers,
+                  signal: abortController.signal,
+                })
+                if (newBalanceResponse.ok) {
+                  const newBalanceData = await newBalanceResponse.json()
+                  setUserBalance(newBalanceData.balance || 2.5)
+                }
+              }
+            }
+          } else {
+            const balanceData = await balanceResponse.json()
+            setUserBalance(balanceData.balance || 2.5)
+          }
+        }
+
+        // Handle games
         if (gamesResponse.ok) {
           const games: EarnGame[] = await gamesResponse.json()
           setPublishedEarnGames(games.filter(game => game.is_active !== false))
+        } else {
+          setPublishedEarnGames([])
         }
 
-        // Check for existing wallet connection
+        // Handle time balance
+        if (timeResponse.ok) {
+          const { timeBalance: timeBalanceInMinutes } = await timeResponse.json()
+          setTimeBalance(timeBalanceInMinutes)
+        }
+
+        // Wallet connection (unchanged)
         if (typeof window !== "undefined" && window.ethereum) {
           const balance = await fetchWalletBalance()
           setWalletBalance(balance)
@@ -192,6 +260,7 @@ export function EarnGrid() {
     }
 
     return () => {
+      abortController.abort()
       if (
         typeof window !== "undefined" &&
         window.ethereum &&
@@ -201,7 +270,7 @@ export function EarnGrid() {
         window.ethereum.removeAllListeners('chainChanged')
       }
     }
-  }, [])
+  }, [isLoaded, user, getToken])
 
   const handlePlayGame = async (gameId: number) => {
     if (!isLoaded) return
@@ -218,6 +287,17 @@ export function EarnGrid() {
             <Link href="/sign-in">Sign In</Link>
           </Button>
         ),
+      })
+      setIsStartingGame(null)
+      return
+    }
+
+    // Check time balance before starting the game
+    if (timeBalance <= 0) {
+      toast({
+        title: "No time balance",
+        description: "You don't have enough time balance to play this game",
+        variant: "destructive",
       })
       setIsStartingGame(null)
       return
@@ -292,13 +372,13 @@ export function EarnGrid() {
 
         <div className="flex items-center gap-4 bg-gradient-to-r from-[#2b2b2b] to-[#1a1a1a] px-5 py-3 rounded-xl w-full md:w-auto shadow-lg">
           <div className="text-right">
-            <div className="text-gray-400 text-xs">Your CORE Balance</div>
+            <div className="text-gray-400 text-xs">Available Tme Balance </div>
             <div className="text-white font-semibold text-2xl flex items-center gap-2">
               {isLoadingWalletBalance ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
-                  {(userBalance + walletBalance).toFixed(2)} CORE
+                  {(userBalance + walletBalance).toFixed(2)} Min.
                   <button 
                     onClick={refreshBalances}
                     className="text-gray-400 hover:text-white transition-colors"
@@ -309,8 +389,11 @@ export function EarnGrid() {
                 </>
               )}
             </div>
+            <div className="text-gray-400 text-xs mt-1">
+              Time Balance: {Math.floor(userBalance / 60)}h {userBalance % 60}m
+            </div>
           </div>
-          {isWalletConnected ? (
+          {/* {isWalletConnected ? (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
                 <Wallet className="w-4 h-4 text-white" />
@@ -328,7 +411,7 @@ export function EarnGrid() {
               <Wallet className="w-4 h-4" />
               <span>Connect Wallet</span>
             </Button>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -391,7 +474,7 @@ export function EarnGrid() {
                     <Button 
                       onClick={() => handlePlayGame(game.id)}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-full mt-2"
-                      disabled={isStartingGame === game.id}
+                      disabled={isStartingGame === game.id || timeBalance <= 0}
                     >
                       {isStartingGame === game.id ? (
                         <>
@@ -408,6 +491,11 @@ export function EarnGrid() {
                         </>
                       )}
                     </Button>
+                    {timeBalance <= 0 && (
+                      <p className="text-red-400 text-xs mt-2 text-center">
+                        You don't have enough time balance to play
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

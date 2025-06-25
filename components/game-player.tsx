@@ -10,7 +10,7 @@ interface GamePlayerProps {
   gameId: string
   title: string
   url: string
-  image?: string // ✅ Added optional image prop
+  image?: string 
 }
 
 export function GamePlayer({ gameId, title, url, image }: GamePlayerProps) {
