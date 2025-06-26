@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "seed": "tsc ./prisma/seed.ts && node ./prisma/seed.js",
-    "dev": "prisma generate && next build",
-    "build": "next build",
+    "dev": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint"
   },
